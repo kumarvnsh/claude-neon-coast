@@ -1,4 +1,4 @@
-import type { Register, ThemeSetArgs } from 'claude-code'
+import type { EngineInterface, Register, ThemeSetArgs } from 'claude-code'
 
 import { makeColors } from './make-colors.js'
 import { SCENE } from './scene'
@@ -63,6 +63,30 @@ const STYLE: ThemeSetArgs['style'] = {
   ToolUse: { color: 'text-secondary', backgroundColor: 'surface-2', borderColor: '#ff4fa366', radius: 10, paddingX: 10, paddingY: 4 },
 }
 
+// On or off is kept across sessions; on until the person turns it off.
+let isOn = true
+
+async function apply($: EngineInterface) {
+  if (!isOn) {
+    await $.theme.clear()
+    return
+  }
+  try {
+    await $.theme.set({ ...LOOK, style: STYLE })
+  } catch (error) {
+    // An older build that takes no style still gets the colors and scene.
+    $.ui.log(String(error))
+    await $.theme.set(LOOK)
+  }
+}
+
+async function flip($: EngineInterface) {
+  isOn = !isOn
+  await $.store.set('enabled', isOn)
+  await apply($)
+  $.ui.invalidate('ui.render')
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const unpainted = problems.find(line => line.startsWith("Desktop won't paint"))
@@ -71,15 +95,37 @@ export const register: Register = on => {
       $.ui.toast(unpainted)
     }
 
-    try {
-      await $.theme.set({ ...LOOK, style: STYLE })
-    } catch (error) {
-      // An older build that takes no style still gets the colors and scene.
-      $.ui.log(String(error))
-      await $.theme.set(LOOK)
+    isOn = (await $.store.get('enabled')) !== false
+    await $.command.register({ name: 'neon', description: 'Turn the neon-coast theme on or off' })
+    if (isOn) {
+      await apply($)
     }
 
     return next(e)
+  })
+
+  on('command.run', { command: 'neon' }, async $ => {
+    await flip($)
+
+    return { text: isOn ? 'neon-coast theme on.' : 'neon-coast theme off.' }
+  })
+
+  on('ui.message', { component: 'BesidePrompt' }, async ($, e) => {
+    const data = e.data as { toggle?: unknown } | null
+    if (data?.toggle === true) {
+      await flip($)
+    }
+
+    return { props: { isOn } }
+  })
+
+  on('ui.render', { component: 'BesidePrompt' }, ($, e, next) => {
+    if (e.surface !== 'desktop') {
+      return next(e)
+    }
+    const { Client } = $.ui.resolve(e)
+
+    return <Client key="toggle" module="./toggle.tsx" props={{ isOn }} />
   })
 
   on('ui.render', { component: 'Backdrop' }, ($, e, next) => {
@@ -87,6 +133,9 @@ export const register: Register = on => {
       return next(e)
     }
 
+    if (!isOn) {
+      return next(e)
+    }
     const { Svg } = $.ui.resolve(e)
 
     return <Svg source={SCENE} alt="A neon sunset over a palm-lined coast and city skyline" isInteractive />

@@ -24,6 +24,10 @@ In the desktop app: click + next to the prompt box, then Plugins, Add marketplac
 
 Restart the desktop app afterwards to see the theme in sessions that were already open.
 
+## Turning it on and off
+
+In the desktop app's Code tab, click **🌴 on** beside the message box to turn the theme off, and **🌴 off** to turn it back on. You can also type `/neon` in any session. Your choice is remembered for new sessions.
+
 ## Light mode
 
 To follow the app's own light or dark mode, delete the `overrideColorScheme: 'dark'` line in `hooks/register.tsx`. Light mode is a pastel golden hour with a teal sea.
