@@ -1,0 +1,5 @@
+{
+  "name": "claude-neon-coast",
+  "owner": { "name": "kumarvnsh" },
+  "plugins": [{ "name": "neon-coast", "source": "./", "description": "A neon sunset-coast look for the Claude desktop app" }]
+}
